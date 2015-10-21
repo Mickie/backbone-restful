@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <script type="text/javascript" src="../lib/jquery-2.1.4.min.js"></script>
+    <script type="text/javascript" src="../lib/underscore.min.js"></script>
+    <script type="text/javascript" src="backbone-min.js"></script>
+    <script type="text/javascript" src="backbone-localStorage.js"></script>
+</head>
+<body>
+<!-- implement simple todo list-->
+<div class="container">
+    <label>todo</label><br><input class="todo-item" name="todo-item" id="todo-item" placeholder="add todo item">
+    <button class="todo-add">add to todoList</button>
+    <ul class="todo-lists"></ul>
+</div>
+
+<script type="text/template" id="list-item">
+    <li>
+        <span class="list-name"><%= name %></span>
+        <span class="list-status"><%= done %></span>
+        <button class="list-remove">remove item</button>
+    </li>
+</script>
+
+<script type="text/javascript">
+
+    var TodoModel = Backbone.Model.extend({ //model
+        defaults: function () {
+            return {
+                id: null,
+                name: null,
+                done: false
+            }
+        }
+    });
+
+    var TodoCollection = Backbone.Collection.extend({ //collection
+        model: TodoModel,
+        localStorage:new Backbone.LocalStorage('todos') //tricky ,will error if not included
+    });
+
+    var todoView = Backbone.View.extend({ //单个li的view
+        template: _.template($('#list-item').html()),
+        events:{
+            "click .list-remove":"removeItem"
+        },
+        initialize:function(){
+            this.listenTo(this.model,'destroy',this.remove);
+        },
+        removeItem:function(){
+            this.model.destroy();
+        },
+        render:function(){
+            var html = this.template(this.model.toJSON());
+            this.$el.html(html);
+            return this;
+        }
+    });
+
+    var todoListView = Backbone.View.extend({ //整个List view
+        el:".container",
+        events:{
+            "change .todo-item": "onChangeInput",
+            "click .todo-add": "addItem"
+        },
+        onChangeInput:function(evt){
+            var name = evt.currentTarget.value;
+        },
+        addItem:function(){
+            this.collection.create({
+                'name': $('#todo-item').val(),
+                'done': false
+            });
+            $('#todo-item').val('');
+        },
+        initialize:function(){
+            this.listenTo(this.collection,'sync',this.render);
+        },
+        render:function(){
+            var lists = $('.todo-lists').empty(); // this is tricky
+            this.collection.each(function(model){
+                var item = new todoView({model:model});
+                console.log(item);
+                $('.todo-lists').append(item.render().$el);
+            })
+        }
+    });
+    var todoCollection = new TodoCollection();
+    var listView = new todoListView({collection:todoCollection});
+</script>
+</body>
+</html>
