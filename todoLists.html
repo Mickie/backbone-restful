@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <script type="text/javascript" src="../lib/jquery-2.1.4.min.js"></script>
+    <script type="text/javascript" src="../lib/underscore.min.js"></script>
+    <script type="text/javascript" src="backbone-min.js"></script>
+</head>
+<body>
+<!-- demonstrate how to get partial view update in realLife project -->
+<script type="text/template" id="ul">
+    <ul class="aul">
+        <li><%= name %></li>
+        <li><%= comment %></li>
+    </ul>
+</script>
+
+<script type="text/javascript">
+    var Aview = Backbone.View.extend({ //single view
+        template: _.template($('#ul').html()),
+        initialize: function () {
+            this.render();
+        },
+        render: function () {
+            this.$el.html(this.template(this.model.toJSON()));
+            return this;
+        }
+    });
+
+    var ListView = Backbone.View.extend({
+        el: 'body',
+        events: {
+            'click button#add': "addItem"
+        },
+        initialize: function () {
+            this.collection = new Acollection();
+            this.listenTo(this.collection, 'add', this.render);// sync won't be triggered
+            this.addItem();//in mimic of ajax call
+            this.render();
+        },
+        render: function () {
+            var self = this;
+            this.$el.empty();
+            this.$el.append("<h2>data will show after collection updated</h2>");
+            this.$el.append("<button id='add'>append more</button>");
+            this.collection.each(function (model) {
+                console.log(model); // backbone model has attributes
+                console.log(new Aview({model: model})); // backbone views has model,$el
+                self.$el.append(new Aview({model: model}).$el);// don't forget el
+            })
+            return this;
+        },
+        addItem: function () {
+            var self = this;
+            setTimeout(function () {
+                $.get("data.json").success(function (datas) {
+                    _.each(datas, function (data) {
+                        self.collection.add(data);
+                    })
+                })
+            }, 2000);
+        }
+    });
+
+    var Amodel = Backbone.Model.extend({
+        defaults: function () {
+            return {
+                name: null,
+                comment: null
+            }
+        }
+    })
+
+    var Acollection = Backbone.Collection.extend({
+        model: Amodel
+    })
+
+    var listView = new ListView();
+</script>
+</body>
+</html>
