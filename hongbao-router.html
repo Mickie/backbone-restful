@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <script type="text/javascript" src="../lib/jquery-2.1.4.min.js"></script>
+    <script type="text/javascript" src="../lib/underscore.min.js"></script>
+    <script type="text/javascript" src="backbone-min.js"></script>
+</head>
+<body>
+<div class="container"></div>
+<script type="text/template" id="init">
+    <h2>initPage</h2>
+    <div class="ctrlDiv"></div>
+    <button class='submitBtn'>I am ugly btn:(</button>
+    <div class="userLists"></div>
+</script>
+
+<script type="text/template" id="voucher">
+    <h2>voucherPage</h2>
+    <div class="vResult"></div><a href="javascript:void(0)" class="toAcc">change acc</a>
+    <div class="userLists"></div>
+</script>
+
+<script type="text/template" id="account">
+    <h2>changeAcc Page</h2>
+    <div class="ctrlDiv"></div><br>
+    <button class="changeAccBtn">I am a ugly btn:(</button>
+</script>
+
+<script type="text/template" id="user">
+    <ul>
+        <li>name:<%= name %></li>
+        <li>time:<%= time %></li>
+        <li>comment:<%= comment %></li>
+        <li>score:<%= score %></li>
+    </ul>
+</script>
+<script type="text/javascript">
+var status = 1;
+var appPath = window.location.pathname;
+
+//appRouter
+var AppRouter = Backbone.Router.extend({
+    routes: {
+        "init": "initCtrl",
+        "voucher": "voucherCtrl",
+        "account": "accountCtrl",
+        '': "initCtrl"
+    },
+    initialize: function () {
+        this.users = new Users(); // initCollection;
+//          Backbone.history.start({pushState: true,hashChange:false});//this will change current url, has to pre-config in server
+        Backbone.history.start();
+    },
+    initCtrl: function () {
+        var self = this;
+        self.initView = new InitView({collection: this.users});
+        $.when($.get('../backbone/data.json')).done(function (datas) {
+            _.each(datas, function (data) {
+                self.users.add(data);
+            })
+        });
+        $('.container').html(self.initView.$el);
+    },
+    voucherCtrl: function () {
+        var self = this;
+        self.voucherView = new VoucherView({collection: this.users});
+        $.when($.get('../backbone/data.json')).done(function (datas) {
+            _.each(datas, function (data) {
+                self.users.add(data);
+            })
+        });
+        $('.container').html(self.voucherView.$el);
+    },
+    accountCtrl: function () {
+        this.accView = new AccView();
+        $('.container').html(this.accView.$el);
+    },
+    redirect: function (status) {
+        if (status == 1) {
+            this.navigate('init', {trigger: true});//true means trigger action
+        } else if (status == 2) {
+            this.navigate('voucher', {trigger: true});
+        } else if (status == 3) {
+            this.navigate('account', {trigger: true});
+        }
+    }
+});
+
+//views
+var AppView = Backbone.View.extend({
+    initialize: function () {
+        this.router = new AppRouter(); // init Router
+        this.render();
+    },
+    render: function () {
+        this.router.redirect(status);
+    }
+});
+
+var InitView = Backbone.View.extend({
+    template: _.template($('#init').html()),
+    events: {
+        'click button.submitBtn': 'getScore'
+    },
+    initialize: function () {
+        this.inputView = new InputBox();
+        this.usersView = new ListView({collection: this.collection});
+        this.listenTo(this.collection, 'add', this.render);
+        this.render();
+    },
+    render: function () {
+        this.$el.html(this.template());
+        this.$el.find('.ctrlDiv').append(this.inputView.$el);
+        this.$el.find('.userLists').append(this.usersView.$el);
+        return this;
+    },
+    getScore: function () {
+        var acc = $('.cell').val();
+        if (isValidAcc(acc)) {
+            status = 2;
+            appView.router.redirect(status);
+        }
+    }
+})
+
+var VoucherView = Backbone.View.extend({
+    template: _.template($('#voucher').html()),
+    events: {
+        "click a.toAcc": "gotoAcc"
+    },
+    initialize: function () {
+        this.usersView = new ListView({collection: this.collection});
+        this.listenTo(this.collection, 'add', this.render);
+        this.render();
+    },
+    randScore: function (min, max) {
+        var score = Math.floor(Math.random() * max) + 1;
+        return score < min ? min : score;
+    },
+    gotoAcc: function () {
+        status = 3;
+        appView.router.redirect(status);
+    },
+    render: function () {
+        this.$el.html(this.template());
+        var score = this.randScore(1, 20);
+        this.$el.find('.vResult').append("<p>congrat! your score is " + score + "</p>");
+        this.$el.find('.userLists').append(this.usersView.$el);
+        return this;
+    }
+})
+
+var AccView = Backbone.View.extend({
+    template: _.template($('#account').html()),
+    events: {
+        "click button.changeAccBtn": "changeAcc"
+    },
+    initialize: function () {
+        this.inputView = new InputBox();
+        this.render();
+    },
+    render: function () {
+        this.$el.html(this.template());
+        this.$el.find('.ctrlDiv').append(this.inputView.$el);
+        return this;
+    },
+    changeAcc: function () {
+        var acc = $('input.cell').val();
+        if (isValidAcc(acc)) {
+            status = 2;
+            appView.router.redirect(status);
+        } else {
+            alert('输入账户不合法呀～');
+        }
+    }
+});
+
+var InputBox = Backbone.View.extend({
+    tagName: 'input',
+    events: {
+        'change': 'onChangeInput'
+    },
+    onChangeInput: function (evt) {
+        console.log(evt.currentTarget.value);
+    },
+    initialize: function () {
+        this.render();
+    },
+    render: function () {
+        this.$el.attr('class', 'cell').attr('placeholder', 'sample input');
+        return this;
+    }
+});
+
+var UserView = Backbone.View.extend({
+    template: _.template($('#user').html()),
+    initialize: function () {
+        this.render();
+    },
+    render: function () {
+        this.$el.html(this.template(this.model.toJSON()));
+        return this;
+    }
+});
+
+var ListView = Backbone.View.extend({
+    initialize: function () {
+        this.listenTo(this.collection, 'add', this.render);
+        this.render();
+    },
+    render: function () {
+        this.$el.empty();
+        var self = this;
+        this.collection.each(function (model) {
+            var userView = new UserView({model: model});
+            self.$el.append(userView.$el);
+        });
+        return this;
+    }
+});
+
+//models and collections
+var User = Backbone.Model.extend({
+    defaults: function () {
+        return {
+            'name': null,
+            'comment': null,
+            'time': null,
+            'score': null
+        }
+    }
+});
+
+var Users = Backbone.Collection.extend({
+    model: User
+});
+
+
+//global
+var isValidAcc = function (content) {
+    return _.isNumber(Number(content));
+};
+
+//init
+var appView = new AppView();
+
+
+</script>
+</body>
+</html>
