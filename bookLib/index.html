@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <script type="text/javascript" src="js/jquery-2.1.4.min.js"></script>
+    <script type="text/javascript" src="js/underscore.min.js"></script>
+    <script type="text/javascript" src="js/backbone-min.js"></script>
+    <style>
+        .container {
+            width: 95%;
+            margin: 0 auto;
+        }
+
+        .book-cover {
+            width: 80px;
+            height: auto;
+            float: left;
+            margin-right: 5px;
+        }
+
+        ul {
+            width: 200px;
+            border: 1px solid black;
+            padding: 10px 0;
+            display: inline-block;
+            margin-right: 15px;
+        }
+
+        .del {
+            float: right;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+<script type="text/template" id="book">
+    <img src="<%= bookcover %>" class="book-cover">
+    <dl>
+        <dt><%= title %></dt>
+        <dd>author: <%= author %></dd>
+        <dd>pubYear: <%= pubYear %></dd>
+    </dl>
+    <button class="del">delete</button>
+</script>
+<div class="container" id="books">
+    <form id="newBook" action="#">
+        <label>book cover:</label>
+        <input name="bookcover" id="bookcover" type="file" accept="image/*">
+        <br><br>
+        <label>title:</label>
+        <input name="title" id="title" type="text">
+        <label>author:</label>
+        <input name="author" id="author" type="text">
+        <label>pubYear:</label>
+        <input name="pubYear" id="pubYear" type="text">
+        <button id="add">add</button>
+    </form>
+</div>
+<script type="text/javascript">
+    var app = {} || "";
+
+    app.book = Backbone.Model.extend({
+        defaults: function () {
+            return{
+                'bookcover': "#",
+                'title': null,
+                'author': null,
+                'pubYear': null
+            }
+        },
+        parse: function (res) {
+            res.id = res._id;
+            return res;
+        }
+    });
+    app.books = Backbone.Collection.extend({
+        model: app.book,
+        url: '/books'
+    });
+
+    app.bookView = Backbone.View.extend({
+        tagName: "ul",
+        template: _.template($('#book').html()),
+        events: {
+            "click .del": "deleteBook"
+        },
+        render: function () {
+            this.$el.html(this.template(this.model.attributes));
+            return this;
+        },
+        deleteBook: function () {
+            this.model.destroy();
+            this.remove();
+        }
+    });
+
+    app.view = Backbone.View.extend({
+        el: '#books',
+        events: {
+            'click #add': 'addBook'
+        },
+        initialize: function () {
+            this.collection = new app.books();
+            this.collection.fetch({reset: true});
+            this.listenTo(this.collection, "add", this.appendBook);
+            this.listenTo(this.collection, 'reset', this.render);//fetch is lazily loading,view rendered before fetch completed,add reset mornitor to update view
+            this.render();
+        },
+        render: function () {
+            this.collection.each(function (model) {
+                this.appendBook(model);
+            }, this)
+        },
+        appendBook: function (book) {
+            var bookView = new app.bookView({model: book});
+            this.$el.append(bookView.render().$el);
+        },
+        addBook: function (e) {
+            e.preventDefault();
+            var inputs = $('input');
+            var formData = {};
+            var self = this;
+            inputs.each(function (i, el) {
+                if ($(el).val() !== "") {
+                    if (el.id == "bookcover") {
+                        var reader = new FileReader();
+                        reader.onload = function (e) {
+                            formData[el.id] = e.target.result;
+                            self.collection.create(formData); // will trigger add event and send request to server
+                        }
+                        reader.readAsDataURL(el.files[0]);
+                    } else {
+                        formData[el.id] = $(el).val();
+                    }
+                }
+            });
+        }
+    });
+
+    //app init
+    $(function () {
+        new (app.view);
+    })
+
+</script>
+</body>
+</html>
